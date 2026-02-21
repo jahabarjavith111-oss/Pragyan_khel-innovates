@@ -2,159 +2,242 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Smart Auto Focus & Subject Tracking</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#6366f1">
+    <meta name="description" content="AI-Based Smart Auto Focus & Dynamic Subject Tracking">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="SmartFocus">
+    <title>SmartFocus AI - Auto Tracking</title>
+    <link rel="manifest" href="manifest.json">
     <link rel="stylesheet" href="style.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 </head>
 <body>
-    <div class="app-container">
-        <header class="app-header">
-            <div class="logo">
-                <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
-                    <circle cx="16" cy="16" r="14" stroke="currentColor" stroke-width="2"/>
-                    <circle cx="16" cy="16" r="6" fill="currentColor"/>
-                    <path d="M16 2v6M16 24v6M2 16h6M24 16h6" stroke="currentColor" stroke-width="2"/>
-                </svg>
-                <span>SmartFocus AI</span>
+    <div class="app-wrapper">
+        <nav class="top-nav">
+            <div class="nav-brand">
+                <div class="brand-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="10"/>
+                        <circle cx="12" cy="12" r="3"/>
+                        <line x1="12" y1="2" x2="12" y2="5"/>
+                        <line x1="12" y1="19" x2="12" y2="22"/>
+                        <line x1="2" y1="12" x2="5" y2="12"/>
+                        <line x1="19" y1="12" x2="22" y2="12"/>
+                    </svg>
+                </div>
+                <span class="brand-name">SmartFocus</span>
+                <span class="brand-tag">AI</span>
             </div>
-            <div class="header-stats">
-                <div class="stat-item">
-                    <span class="stat-label">FPS</span>
-                    <span class="stat-value" id="fps-counter">0</span>
+            
+            <div class="nav-stats">
+                <div class="stat-badge">
+                    <span class="stat-badge-label">FPS</span>
+                    <span class="stat-badge-value" id="fps-counter">0</span>
                 </div>
-                <div class="stat-item">
-                    <span class="stat-label">Status</span>
-                    <span class="stat-value status-text" id="tracking-status">Ready</span>
+                <div class="stat-badge">
+                    <span class="stat-badge-label">Status</span>
+                    <span class="stat-badge-value status-ready" id="tracking-status">Ready</span>
                 </div>
-                <div class="stat-item">
-                    <span class="stat-label">Confidence</span>
-                    <span class="stat-value" id="confidence-value">--</span>
+                <div class="stat-badge">
+                    <span class="stat-badge-label">Confidence</span>
+                    <span class="stat-badge-value" id="confidence-value">--</span>
                 </div>
             </div>
-        </header>
+            
+            <div class="nav-actions">
+                <button id="btn-upload" class="nav-btn">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                        <polyline points="17 8 12 3 7 8"/>
+                        <line x1="12" y1="3" x2="12" y2="15"/>
+                    </svg>
+                    <span>Upload</span>
+                </button>
+                <button id="btn-webcam" class="nav-btn nav-btn-accent">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M23 7l-7 5 7 5V7z"/>
+                        <rect x="1" y="5" width="15" height="14" rx="2" ry="2"/>
+                    </svg>
+                    <span>Webcam</span>
+                </button>
+                <input type="file" id="video-input" accept="video/*" hidden>
+            </div>
+        </nav>
 
-        <main class="main-content">
-            <aside class="control-panel">
-                <div class="panel-section">
-                    <h3>Input Source</h3>
-                    <div class="button-group">
-                        <button id="btn-upload" class="btn btn-primary">
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                                <polyline points="17 8 12 3 7 8"/>
-                                <line x1="12" y1="3" x2="12" y2="15"/>
+        <main class="main-area">
+            <div class="canvas-wrapper">
+                <div class="canvas-frame">
+                    <canvas id="main-canvas"></canvas>
+                    <canvas id="hidden-canvas" hidden></canvas>
+                    
+                    <div class="canvas-overlay" id="canvas-overlay">
+                        <div class="model-loader">
+                            <div class="loader-ring"></div>
+                            <div class="loader-content">
+                                <div class="loader-icon">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+                                        <path d="M2 17l10 5 10-5"/>
+                                        <path d="M2 12l10 5 10-5"/>
+                                    </svg>
+                                </div>
+                                <p class="loader-text" id="loading-text">Initializing AI models...</p>
+                                <div class="loader-progress">
+                                    <div class="loader-progress-bar"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="interaction-hint" id="click-hint">
+                        <div class="hint-icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <circle cx="12" cy="12" r="10"/>
+                                <path d="M12 16v-4"/>
+                                <path d="M12 8h.01"/>
                             </svg>
-                            Upload Video
-                        </button>
-                        <button id="btn-webcam" class="btn btn-secondary">
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <path d="M23 7l-7 5 7 5V7z"/>
-                                <rect x="1" y="5" width="15" height="14" rx="2" ry="2"/>
-                            </svg>
-                            Start Webcam
-                        </button>
-                        <input type="file" id="video-input" accept="video/*" hidden>
+                        </div>
+                        <span>Click on a subject to track</span>
+                    </div>
+                </div>
+            </div>
+
+            <aside class="settings-panel">
+                <div class="panel-header">
+                    <h2>Settings</h2>
+                    <div class="panel-tabs">
+                        <button class="tab-btn active" data-tab="blur">Blur</button>
+                        <button class="tab-btn" data-tab="detect">Detect</button>
+                        <button class="tab-btn" data-tab="record">Record</button>
                     </div>
                 </div>
 
-                <div class="panel-section">
-                    <h3>Blur Settings</h3>
-                    <div class="slider-control">
-                        <label for="blur-intensity">Blur Intensity</label>
-                        <input type="range" id="blur-intensity" min="0" max="50" value="20">
-                        <span class="slider-value" id="blur-value">20px</span>
+                <div class="panel-content">
+                    <div class="tab-panel active" id="tab-blur">
+                        <div class="setting-group">
+                            <div class="setting-header">
+                                <label>Blur Intensity</label>
+                                <span class="setting-value" id="blur-value">20px</span>
+                            </div>
+                            <input type="range" id="blur-intensity" min="0" max="50" value="20" class="range-slider">
+                        </div>
+
+                        <div class="setting-group">
+                            <div class="setting-toggle">
+                                <div class="toggle-info">
+                                    <span class="toggle-title">Low Light Mode</span>
+                                    <span class="toggle-desc">Better detection in darkness</span>
+                                </div>
+                                <label class="switch">
+                                    <input type="checkbox" id="enable-low-light">
+                                    <span class="switch-slider"></span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <div class="setting-group">
+                            <div class="setting-toggle">
+                                <div class="toggle-info">
+                                    <span class="toggle-title">Long Range Mode</span>
+                                    <span class="toggle-desc">Detect distant objects</span>
+                                </div>
+                                <label class="switch">
+                                    <input type="checkbox" id="enable-long-range">
+                                    <span class="switch-slider"></span>
+                                </label>
+                            </div>
+                        </div>
+                        
+                        <div class="setting-group">
+                            <div class="setting-toggle">
+                                <div class="toggle-info">
+                                    <span class="toggle-title">Enable Segmentation</span>
+                                    <span class="toggle-desc">Better subject isolation</span>
+                                </div>
+                                <label class="switch">
+                                    <input type="checkbox" id="enable-segmentation">
+                                    <span class="switch-slider"></span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="tab-panel" id="tab-detect">
+                        <div class="setting-group">
+                            <div class="setting-header">
+                                <label>Detection Interval</label>
+                                <span class="setting-value" id="detection-value">5 frames</span>
+                            </div>
+                            <input type="range" id="detection-interval" min="1" max="15" value="5" class="range-slider">
+                        </div>
+
+                        <div class="setting-group">
+                            <div class="setting-header">
+                                <label>Confidence Threshold</label>
+                                <span class="setting-value" id="confidence-threshold-value">50%</span>
+                            </div>
+                            <input type="range" id="confidence-threshold" min="0" max="100" value="50" class="range-slider">
+                        </div>
+
+                        <div class="setting-group">
+                            <div class="setting-toggle">
+                                <div class="toggle-info">
+                                    <span class="toggle-title">Object Tracking</span>
+                                    <span class="toggle-desc">Track selected subject</span>
+                                </div>
+                                <label class="switch">
+                                    <input type="checkbox" id="enable-tracking" checked>
+                                    <span class="switch-slider"></span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="tab-panel" id="tab-record">
+                        <div class="recording-controls">
+                            <button id="btn-record" class="record-btn">
+                                <span class="record-btn-icon"></span>
+                                <span class="record-btn-text">Start Recording</span>
+                            </button>
+                            <button id="btn-download" class="download-btn" disabled>
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                    <polyline points="7 10 12 15 17 10"/>
+                                    <line x1="12" y1="15" x2="12" y2="3"/>
+                                </svg>
+                                <span>Download</span>
+                            </button>
+                        </div>
                     </div>
                 </div>
 
-                <div class="panel-section">
-                    <h3>Detection Settings</h3>
-                    <div class="slider-control">
-                        <label for="detection-interval">Detection Interval</label>
-                        <input type="range" id="detection-interval" min="1" max="15" value="5">
-                        <span class="slider-value" id="detection-value">5 frames</span>
-                    </div>
-                    <div class="slider-control">
-                        <label for="confidence-threshold">Confidence Threshold</label>
-                        <input type="range" id="confidence-threshold" min="0" max="100" value="50">
-                        <span class="slider-value" id="confidence-threshold-value">50%</span>
-                    </div>
-                </div>
-
-                <div class="panel-section">
-                    <h3>Tracking</h3>
-                    <div class="toggle-group">
-                        <label class="toggle">
-                            <input type="checkbox" id="enable-tracking" checked>
-                            <span class="toggle-slider"></span>
-                            <span class="toggle-label">Enable Tracking</span>
-                        </label>
-                        <label class="toggle">
-                            <input type="checkbox" id="enable-segmentation">
-                            <span class="toggle-slider"></span>
-                            <span class="toggle-label">Enable Segmentation (slower)</span>
-                        </label>
-                    </div>
-                </div>
-
-                <div class="panel-section">
-                    <h3>Recording</h3>
-                    <div class="button-group">
-                        <button id="btn-record" class="btn btn-record">
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                                <circle cx="12" cy="12" r="8"/>
-                            </svg>
-                            Start Recording
-                        </button>
-                        <button id="btn-download" class="btn btn-download" disabled>
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                                <polyline points="7 10 12 15 17 10"/>
-                                <line x1="12" y1="15" x2="12" y2="3"/>
-                            </svg>
-                            Download
-                        </button>
-                    </div>
-                </div>
-
-                <div class="panel-section status-panel">
+                <div class="panel-footer">
                     <h3>System Status</h3>
-                    <div class="status-list">
-                        <div class="status-item" id="status-tf">
-                            <span class="status-dot"></span>
+                    <div class="status-grid">
+                        <div class="status-card" id="status-tf">
+                            <div class="status-indicator"></div>
                             <span>TensorFlow.js</span>
                         </div>
-                        <div class="status-item" id="status-mp">
-                            <span class="status-dot"></span>
+                        <div class="status-card" id="status-mp">
+                            <div class="status-indicator"></div>
                             <span>MediaPipe</span>
                         </div>
-                        <div class="status-item" id="status-model">
-                            <span class="status-dot"></span>
-                            <span>COCO-SSD Model</span>
+                        <div class="status-card" id="status-model">
+                            <div class="status-indicator"></div>
+                            <span>COCO-SSD</span>
                         </div>
                     </div>
                 </div>
             </aside>
-
-            <section class="video-area">
-                <div class="canvas-container" id="canvas-container">
-                    <canvas id="main-canvas"></canvas>
-                    <canvas id="hidden-canvas" hidden></canvas>
-                    <div class="canvas-overlay" id="canvas-overlay">
-                        <div class="loading-spinner" id="loading-spinner">
-                            <div class="spinner"></div>
-                            <p id="loading-text">Loading AI models...</p>
-                        </div>
-                    </div>
-                    <div class="click-hint" id="click-hint">
-                        Click on a subject to track
-                    </div>
-                </div>
-            </section>
         </main>
 
         <footer class="app-footer">
-            <p>AI Smart Auto Focus - All processing runs locally in your browser</p>
+            <p>All processing runs locally in your browser</p>
         </footer>
     </div>
 
@@ -165,5 +248,18 @@
     <script src="tracking.js"></script>
     <script src="segmentation.js"></script>
     <script src="app.js"></script>
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/service-worker.js')
+                    .then((registration) => {
+                        console.log('SW registered:', registration);
+                    })
+                    .catch((error) => {
+                        console.log('SW registration failed:', error);
+                    });
+            });
+        }
+    </script>
 </body>
 </html>

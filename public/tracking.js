@@ -9,6 +9,8 @@ class ObjectTracker {
         this.trackingLostFrames = 0;
         this.isTracking = false;
         this.trackingHistory = [];
+        this.lastClickIndex = 0;
+        this.lastClickPos = null;
     }
     
     calculateIoU(bbox1, bbox2) {
@@ -52,6 +54,8 @@ class ObjectTracker {
     }
     
     selectObject(detections, clickX, clickY, videoWidth, videoHeight) {
+        const matchingDetections = [];
+        
         for (const detection of detections) {
             const [x, y, w, h] = detection.bbox;
             
@@ -66,21 +70,46 @@ class ObjectTracker {
             if (clickX >= scaledX && clickX <= scaledX + scaledW &&
                 clickY >= scaledY && clickY <= scaledY + scaledH) {
                 
-                this.trackedObject = {
+                matchingDetections.push({
                     ...detection,
                     bbox: [scaledX, scaledY, scaledW, scaledH],
-                    selectedAt: Date.now()
-                };
-                this.previousBbox = [scaledX, scaledY, scaledW, scaledH];
-                this.isTracking = true;
-                this.trackingLostFrames = 0;
-                this.trackingHistory = [];
-                
-                return this.trackedObject;
+                    area: scaledW * scaledH
+                });
             }
         }
         
-        return null;
+        if (matchingDetections.length === 0) {
+            this.lastClickIndex = 0;
+            return null;
+        }
+        
+        if (matchingDetections.length === 1) {
+            this.lastClickIndex = 0;
+        } else if (this.lastClickPos && 
+                   Math.abs(this.lastClickPos.x - clickX) < 50 && 
+                   Math.abs(this.lastClickPos.y - clickY) < 50) {
+            this.lastClickIndex = (this.lastClickIndex + 1) % matchingDetections.length;
+        } else {
+            matchingDetections.sort((a, b) => b.area - a.area);
+            this.lastClickIndex = 0;
+        }
+        
+        matchingDetections.sort((a, b) => b.area - a.area);
+        
+        const selected = matchingDetections[this.lastClickIndex];
+        
+        this.lastClickPos = { x: clickX, y: clickY };
+        
+        this.trackedObject = {
+            ...selected,
+            selectedAt: Date.now()
+        };
+        this.previousBbox = selected.bbox;
+        this.isTracking = true;
+        this.trackingLostFrames = 0;
+        this.trackingHistory = [];
+        
+        return this.trackedObject;
     }
     
     update(detections, forceDetect = false) {

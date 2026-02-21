@@ -18,7 +18,9 @@ class SmartFocusApp {
             detectionInterval: 5,
             confidenceThreshold: 0.5,
             enableTracking: true,
-            enableSegmentation: true
+            enableSegmentation: true,
+            enableLowLight: false,
+            enableLongRange: false
         };
         
         this.currentDetections = [];
@@ -81,6 +83,30 @@ class SmartFocusApp {
             this.settings.enableSegmentation = e.target.checked;
         });
         
+        document.getElementById('enable-low-light').addEventListener('change', (e) => {
+            this.settings.enableLowLight = e.target.checked;
+            if (this.settings.enableLowLight) {
+                this.settings.confidenceThreshold = 0.3;
+                this.settings.detectionInterval = 1;
+                document.getElementById('confidence-threshold').value = 30;
+                document.getElementById('confidence-threshold-value').textContent = '30%';
+                document.getElementById('detection-interval').value = 1;
+                document.getElementById('detection-value').textContent = '1 frame';
+            }
+        });
+        
+        document.getElementById('enable-long-range').addEventListener('change', (e) => {
+            this.settings.enableLongRange = e.target.checked;
+            if (this.settings.enableLongRange) {
+                this.settings.confidenceThreshold = 0.25;
+                this.settings.detectionInterval = 1;
+                document.getElementById('confidence-threshold').value = 25;
+                document.getElementById('confidence-threshold-value').textContent = '25%';
+                document.getElementById('detection-interval').value = 1;
+                document.getElementById('detection-value').textContent = '1 frame';
+            }
+        });
+        
         document.getElementById('btn-record').addEventListener('click', () => {
             this.toggleRecording();
         });
@@ -96,12 +122,20 @@ class SmartFocusApp {
         window.addEventListener('resize', () => {
             this.handleResize();
         });
+
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+                document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+                e.target.classList.add('active');
+                document.getElementById(`tab-${e.target.dataset.tab}`).classList.add('active');
+            });
+        });
     }
     
     loadAI() {
         const loadingText = document.getElementById('loading-text');
         
-        // Check if libraries loaded
         if (typeof tf === 'undefined' || typeof cocoSsd === 'undefined') {
             loadingText.textContent = 'Loading libraries...';
             setTimeout(() => this.loadAI(), 500);
@@ -110,9 +144,13 @@ class SmartFocusApp {
         
         loadingText.textContent = 'Loading AI model...';
         
-        loadDetectionModel().then(() => {
+        Promise.all([
+            loadDetectionModel(),
+            initSegmentation()
+        ]).then(() => {
             updateStatus('tf', 'loaded');
             updateStatus('model', 'loaded');
+            updateStatus('mp', 'loaded');
             this.hideLoading();
         }).catch(err => {
             console.error('Error:', err);
@@ -139,18 +177,25 @@ class SmartFocusApp {
         
         if (this.video) {
             this.video.srcObject = null;
-            this.video.remove();
         }
         
         this.video = document.createElement('video');
         this.video.src = URL.createObjectURL(file);
         this.video.muted = true;
         this.video.playsInline = true;
+        this.video.autoplay = false;
+        this.video.loop = true;
         
         this.video.onloadedmetadata = () => {
             this.setupVideoCanvas();
-            this.video.play();
-            this.startProcessing();
+            this.video.play().then(() => {
+                this.startProcessing();
+            });
+        };
+        
+        this.video.onerror = (e) => {
+            console.error('Video error:', e);
+            alert('Failed to load video file');
         };
     }
     
@@ -159,27 +204,38 @@ class SmartFocusApp {
         
         try {
             const stream = await navigator.mediaDevices.getUserMedia({
-                video: { width: 1280, height: 720, facingMode: 'user' }
+                video: { 
+                    width: { ideal: 1280 },
+                    height: { ideal: 720 },
+                    facingMode: 'user'
+                },
+                audio: false
             });
             
             if (this.video) {
                 this.video.srcObject = null;
-                this.video.remove();
             }
             
             this.video = document.createElement('video');
             this.video.srcObject = stream;
             this.video.muted = true;
             this.video.playsInline = true;
+            this.video.autoplay = true;
             
             this.video.onloadedmetadata = () => {
-                this.setupVideoCanvas();
-                this.video.play();
-                this.startProcessing();
+                this.video.play().then(() => {
+                    this.setupVideoCanvas();
+                    this.startProcessing();
+                });
+            };
+            
+            this.video.onerror = (e) => {
+                console.error('Video error:', e);
+                alert('Failed to load video stream');
             };
         } catch (error) {
             console.error('Failed to access webcam:', error);
-            alert('Failed to access webcam. Please check permissions.');
+            alert('Failed to access webcam. Please check permissions and make sure no other app is using the camera.');
         }
     }
     
@@ -194,18 +250,20 @@ class SmartFocusApp {
         
         this.objectTracker.setVideoDimensions(videoWidth, videoHeight);
         
-        const container = document.getElementById('canvas-container');
-        const containerWidth = container.clientWidth - 4;
-        const containerHeight = window.innerHeight - 180;
-        
-        const scale = Math.min(
-            containerWidth / videoWidth,
-            containerHeight / videoHeight,
-            1
-        );
-        
-        this.mainCanvas.style.width = `${videoWidth * scale}px`;
-        this.mainCanvas.style.height = `${videoHeight * scale}px`;
+        const container = document.querySelector('.canvas-frame');
+        if (container) {
+            const containerWidth = container.clientWidth - 4;
+            const containerHeight = Math.min(container.clientHeight, window.innerHeight - 200);
+            
+            const scale = Math.min(
+                containerWidth / videoWidth,
+                containerHeight / videoHeight,
+                1
+            );
+            
+            this.mainCanvas.style.width = `${videoWidth * scale}px`;
+            this.mainCanvas.style.height = `${videoHeight * scale}px`;
+        }
         
         if (this.settings.enableSegmentation && isSegmentationReady()) {
             this.runSegmentation();
@@ -263,7 +321,7 @@ class SmartFocusApp {
     }
     
     async processFrame() {
-        if (!this.isProcessing || this.video.paused || this.video.ended) {
+        if (!this.isProcessing || this.video.paused) {
             if (this.isProcessing) {
                 this.animationId = requestAnimationFrame(() => this.processFrame());
             }
@@ -281,7 +339,9 @@ class SmartFocusApp {
             try {
                 this.currentDetections = await detectObjects(
                     this.video,
-                    this.settings.confidenceThreshold
+                    this.settings.confidenceThreshold,
+                    this.settings.enableLowLight,
+                    this.settings.enableLongRange
                 );
             } catch (error) {
                 console.error('Detection error:', error);
@@ -314,7 +374,7 @@ class SmartFocusApp {
         const videoWidth = this.video.videoWidth;
         const videoHeight = this.video.videoHeight;
         
-        this.mainCtx.fillStyle = '#0f172a';
+        this.mainCtx.fillStyle = '#0a0a0f';
         this.mainCtx.fillRect(0, 0, videoWidth, videoHeight);
         
         if (trackedObject) {
@@ -333,10 +393,10 @@ class SmartFocusApp {
             
             if (trackedObject.predicted) {
                 trackingStatusEl.textContent = 'Predicting';
-                trackingStatusEl.className = 'stat-value status-text tracking';
+                trackingStatusEl.className = 'stat-badge-value status-tracking';
             } else {
                 trackingStatusEl.textContent = 'Tracking';
-                trackingStatusEl.className = 'stat-value status-text';
+                trackingStatusEl.className = 'stat-badge-value status-ready';
             }
             
             confidenceEl.textContent = trackedObject.confidence ? 
@@ -364,7 +424,7 @@ class SmartFocusApp {
             
             const trackingStatusEl = document.getElementById('tracking-status');
             trackingStatusEl.textContent = this.objectTracker.getTrackedObject() ? 'Searching...' : 'Ready';
-            trackingStatusEl.className = 'stat-value status-text';
+            trackingStatusEl.className = 'stat-badge-value';
             
             document.getElementById('confidence-value').textContent = '--';
         }
@@ -447,10 +507,8 @@ class SmartFocusApp {
         const recordBtn = document.getElementById('btn-record');
         recordBtn.classList.add('recording');
         recordBtn.innerHTML = `
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                <rect x="6" y="6" width="12" height="12"/>
-            </svg>
-            Stop Recording
+            <span class="record-btn-icon"></span>
+            <span class="record-btn-text">Stop Recording</span>
         `;
     }
     
@@ -464,10 +522,8 @@ class SmartFocusApp {
         const recordBtn = document.getElementById('btn-record');
         recordBtn.classList.remove('recording');
         recordBtn.innerHTML = `
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                <circle cx="12" cy="12" r="8"/>
-            </svg>
-            Start Recording
+            <span class="record-btn-icon"></span>
+            <span class="record-btn-text">Start Recording</span>
         `;
     }
     

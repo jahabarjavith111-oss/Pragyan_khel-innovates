@@ -1,11 +1,10 @@
 {
-  "name": "ai-smart-auto-focus",
+  "name": "smartfocus-ai",
   "version": "1.0.0",
-  "description": "AI-Based Smart Auto Focus & Dynamic Subject Tracking System",
+  "description": "AI-Based Smart Auto Focus & Dynamic Subject Tracking",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js",
-    "dev": "node server.js"
+    "start": "node server.js"
   },
   "dependencies": {
     "cors": "^2.8.5",
